@@ -71,13 +71,24 @@ def get_user_tweets(unique_identifier):
 		print("There were less than 20 results")
 		return tweet_response_info
 
-
+def get_user(unique_identifier):
+	if unique_identifier+"_user_info" in CACHE_DICTION: # if it is...
+		user_results = CACHE_DICTION[unique_identifier+"_user_info"] # grab the data from the cache!
+	else:
+		user_results = api.get_user(unique_identifier) # get it from the internet
+			# but also, save in the dictionary to cache it!
+		CACHE_DICTION[unique_identifier+"_user_info"] = user_results # add it to the dictionary -- new key-val pair
+			# and then write the whole cache dictionary, now with new info added, to the file, so it'll be there even after your program closes!
+		f = open(CACHE_FNAME,'w') # open the cache file for writing
+		f.write(json.dumps(CACHE_DICTION)) # make the whole dictionary holding data and unique identifiers into a json-formatted string, and write that wholllle string to a file so you'll have it next time!
+		f.close()
+	return user_results
 
 
 # Write an invocation to the function for the "umich" user timeline and save the result in a variable called umich_tweets:
 
-umich_tweets = get_user_tweets("umich"):
-
+umich_tweets = get_user_tweets("umich")
+#umich_user = get_user("umich")
 
 ## Task 2 - Creating database and loading data into database
 
@@ -110,15 +121,66 @@ umich_tweets = get_user_tweets("umich"):
 ## HINT #2: You may want to go back to a structure we used in class this week to ensure that you reference the user correctly in each Tweet record.
 ## HINT #3: The users mentioned in each tweet are included in the tweet dictionary -- you don't need to do any manipulation of the Tweet text to find out which they are! Do some nested data investigation on a dictionary that represents 1 tweet to see it!
 
+connection_p3DB = sqlite3.connect('project3_tweets.db')
+p3DB_cur = connection_p3DB.cursor()
 
+try:
+	p3DB_cur.execute("DROP TABLE IF EXISTS Tweets")
+	connection_p3DB.commit()
 
+	p3B_cur.execute("DROP TABLE IF EXISTS Users")
+	connection_p3DB.commit()
 
+except:
+	pass
 
+creation_statement = "CREATE TABLE IF NOT EXISTS " 
+creation_statement += "Tweets (tweet_id INTEGER PRIMARY KEY, text TEXT, user_id TEXT, time_posted TIMESTAMP, retweets INTEGER )"
+p3DB_cur.execute(creation_statement)
+connection_p3DB.commit()
 
+creation_statement = "CREATE TABLE IF NOT EXISTS " 
+creation_statement += "Users (user_id INTEGER PRIMARY KEY, screen_name TEXT, num_favs INTEGER, description TEXT )"
+p3DB_cur.execute(creation_statement)
+connection_p3DB.commit()
 
+def save_tweet(conn, cur, tweet_diction):
+    tweet_id = tweet_diction['id_str']
+    text = tweet_diction['text']
+    time_posted =tweet_diction['created_at']
+    retweets = tweet_diction['retweet_count']
+    tweet_user_id = tweet_diction['user']['id_str']
+    important_users = []
+    important_users.append(tweet_diction['user']['screen_name'])
+    for mention in tweet_diction['entities']['user_mentions']:
+    	important_users.append(mention['screen_name'])
+    for user in important_users: # each hashtag dictionary in a list??
+        user_info = get_user(user)
 
+        userid_str = user_info['id_str']
+        userscreen_name = user_info['screen_name']
+        usernum_favs = user_info['favourites_count']
+        user_description = user_info['description']
+        select_sql = "SELECT * FROM Users WHERE user_id =" + userid_str
+        #print(hashtag) # debugging statement
+        cur.execute(select_sql,)
+       	#for item in cur: # debugging
+       	#    print(item, "this is an item in the cursor") # debugging
+        if not cur.fetchone(): # If there isn't even one when you try to select one,
+            # Then do an insert statement for it with 0. Accumulating into a database instead of a dictionary!
+            insert_sql = 'INSERT INTO Users (user_id, screen_name, num_favs, description) VALUES (?, ?, ?, ?)'
+            cur.execute(insert_sql, (int(userid_str), userscreen_name, usernum_favs, user_description))
+            conn.commit() # Commit changes to the database table.
+                
+    select_sql = 'SELECT * FROM Tweets WHERE tweet_id=' + tweet_id
+    cur.execute(select_sql)
+    if not cur.fetchone(): # If a tweet with that id doesn't exist already,
+                insert_sql = 'INSERT INTO Tweets VALUES (?, ?, ?, ?, ?)'
+                cur.execute(insert_sql, (int(tweet_id), text, tweet_user_id, time_posted, retweets))
+                conn.commit()
 
-
+for tweet in umich_tweets:
+	save_tweet(connection_p3DB, p3DB_cur, tweet)
 
 ## Task 3 - Making queries, saving data, fetching data
 
@@ -157,6 +219,7 @@ umich_tweets = get_user_tweets("umich"):
 # You should save the final dictionary in a variable called twitter_info_diction.
 
 
+p3DB_cur.close()
 
 ### IMPORTANT: MAKE SURE TO CLOSE YOUR DATABASE CONNECTION AT THE END OF THE FILE HERE SO YOU DO NOT LOCK YOUR DATABASE (it's fixable, but it's a pain). ###
 
