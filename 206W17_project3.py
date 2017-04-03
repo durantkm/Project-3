@@ -14,7 +14,7 @@ import twitter_info # same deal as always...
 import json
 import sqlite3
 
-## Your name:
+## Your name: Kyle Durant
 ## The names of anyone you worked with on this project:
 
 #####
@@ -187,37 +187,82 @@ for tweet in umich_tweets:
 # All of the following sub-tasks require writing SQL statements and executing them using Python.
 
 # Make a query to select all of the records in the Users database. Save the list of tuples in a variable called users_info.
+users_info = []
 
+query_users_info = 'SELECT * FROM Users' 
+
+p3DB_cur.execute(query_users_info)
+for row in p3DB_cur:
+	users_info.append(row)
 # Make a query to select all of the user screen names from the database. Save a resulting list of strings (NOT tuples, the strings inside them!) in the variable screen_names. HINT: a list comprehension will make this easier to complete!
 
+screen_names = []
+screen_namestuple = []
+query_screen_names = 'SELECT screen_name FROM Users' 
 
+p3DB_cur.execute(query_screen_names)
+for row in p3DB_cur:
+	screen_names.append(row[0])
+	
+#print (screen_names)
 # Make a query to select all of the tweets (full rows of tweet information) that have been retweeted more than 25 times. Save the result (a list of tuples, or an empty list) in a variable called more_than_25_rts.
+more_than_25_rts = []
+query_more_than_25_rts = 'SELECT * FROM Tweets WHERE retweets > 25' 
 
-
+p3DB_cur.execute(query_more_than_25_rts)
+for row in p3DB_cur:
+	more_than_25_rts.append(row)
 
 # Make a query to select all the descriptions (descriptions only) of the users who have favorited more than 25 tweets. Access all those strings, and save them in a variable called descriptions_fav_users, which should ultimately be a list of strings.
 
+descriptions_fav_users = []
+query_descriptions_fav_users = 'SELECT description FROM Users WHERE num_favs > 25' 
 
+p3DB_cur.execute(query_descriptions_fav_users)
+for row in p3DB_cur:
+	descriptions_fav_users.append(row[0])
 
 # Make a query using an INNER JOIN to get a list of tuples with 2 elements in each tuple: the user screenname and the text of the tweet -- for each tweet that has been retweeted more than 50 times. Save the resulting list of tuples in a variable called joined_result.
 
+joined_result = []
 
-
-
+query_joined_result = "SELECT Users.screen_name, Tweets.text FROM Tweets INNER JOIN Users on Tweets.user_id = Users.user_id WHERE retweets > 5"
+ 
+p3DB_cur.execute(query_joined_result)
+for row in p3DB_cur:
+	joined_result.append(row)
 ## Task 4 - Manipulating data with comprehensions & libraries
 
 ## Use a set comprehension to get a set of all words (combinations of characters separated by whitespace) among the descriptions in the descriptions_fav_users list. Save the resulting set in a variable called description_words.
 
-
+description_words = {item: item.split(' ') for item in descriptions_fav_users}
 
 ## Use a Counter in the collections library to find the most common character among all of the descriptions in the descriptions_fav_users list. Save that most common character in a variable called most_common_char. Break any tie alphabetically (but using a Counter will do a lot of work for you...).
 
+most_common_char_per_desc = [collections.Counter(item).most_common(1) for item in descriptions_fav_users]
+ch_list = [item[0] for item in most_common_char_per_desc[0]]
 
+most_common_char_list = collections.Counter(ch_list).most_common(1)
+
+most_common_char = str(most_common_char_list[0][0])
 
 ## Putting it all together...
-# Write code to create a dictionary whose keys are Twitter screen names and whose associated values are lists of tweet texts that that user posted. You may need to make additional queries to your database! To do this, you can use, and must use at least one of: the DefaultDict container in the collections library, a dictionary comprehension, list comprehension(s). Y
+# Write code to create a dictionary whose keys are Twitter screen names and whose associated
+#values are lists of tweet texts that that user posted. You may need to make additional queries 
+#to your database! To do this, you can use, and must use at least one of: the DefaultDict container in the collections library, a dictionary comprehension, list comprehension(s). Y
 # You should save the final dictionary in a variable called twitter_info_diction.
+all_joined_query = "SELECT Users.screen_name, Tweets.text FROM Tweets INNER JOIN Users on Tweets.user_id = Users.user_id"
+all_joined = []
+p3DB_cur.execute(all_joined_query)
+for row in p3DB_cur:
+	all_joined.append(row)
 
+dict_collect = collections.defaultdict(list)
+
+[dict_collect[k].append(v) for k,v in all_joined]
+
+twitter_info_diction = {item[0]: item[1] for item in dict_collect.items()}
+#print(twitter_info_diction.items())
 
 p3DB_cur.close()
 
